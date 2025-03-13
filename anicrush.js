@@ -102,9 +102,10 @@
 
   /**
    * Retrieves streaming source(s) for a given anime episode.
-   * Constructs an embed URL in the format:
+   * Constructs an embed URL using the provided anime ID and episode number.
+   * The embed URL format is:
    *   https://anicrush.to/embed/anime/<kebab-case-anime-id>-<episode-number>
-   * and fetches the page with a required Referer header.
+   * and fetches the page with the required Referer header.
    */
   async function content(animeId, episode) {
     const kebabId = toKebabCase(animeId);
@@ -121,7 +122,8 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * Searches for a packed script (using eval(function(p,a,c,k,e,d)...)) and extracts the URL via regex.
+   * It searches for a packed script (using eval(function(p,a,c,k,e,d)...))
+   * and extracts the URL using regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
@@ -141,13 +143,18 @@
     }
   }
 
-  // UMD-style export: If module.exports exists, use it; otherwise, attach to the global object.
+  // UMD-style export using globalThis.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = { search, details, content, extractStreamUrl };
+  } else if (typeof globalThis !== "undefined") {
+    globalThis.search = search;
+    globalThis.details = details;
+    globalThis.content = content;
+    globalThis.extractStreamUrl = extractStreamUrl;
   } else {
-    window.search = search;
-    window.details = details;
-    window.content = content;
-    window.extractStreamUrl = extractStreamUrl;
+    this.search = search;
+    this.details = details;
+    this.content = content;
+    this.extractStreamUrl = extractStreamUrl;
   }
 })();
