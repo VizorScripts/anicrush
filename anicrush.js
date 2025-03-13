@@ -46,20 +46,16 @@
 
   /**
    * Searches for anime/movies using the AniCrush shared API.
-   * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10&site=anicrush
+   * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10
    */
   async function search(query) {
-    // Append the query parameter "site=anicrush" to the URL.
-    const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10&site=anicrush`;
-    // Construct headers matching the auto-generated ones from Postman.
+    const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10`;
     const headers = {
       "Host": "api.anicrush.to",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/120.0",
       "Accept": "application/json, text/plain, */*",
       "Accept-Encoding": "gzip, deflate, br",
-      "Connection": "keep-alive",
-      "x-site": "anicrush",
-      "X-Requested-With": "XMLHttpRequest"
+      "Connection": "keep-alive"
     };
 
     const data = await fetchJson(url, headers);
@@ -68,7 +64,6 @@
       return [];
     }
     let results = [];
-    // Try to detect various possible response structures.
     if (Array.isArray(data)) {
       results = data;
     } else if (data.data && Array.isArray(data.data)) {
@@ -91,7 +86,7 @@
 
   /**
    * Retrieves detailed anime information.
-   * (This is a placeholder since the details endpoint isn’t clearly defined.)
+   * (Placeholder – adjust if a details endpoint is available.)
    */
   async function details(animeId) {
     console.log(`Fetching details for anime ID: ${animeId}`);
@@ -107,9 +102,9 @@
 
   /**
    * Retrieves streaming source(s) for a given anime episode.
-   * Constructs an embed URL of the format:
+   * Constructs an embed URL in the format:
    *   https://anicrush.to/embed/anime/<kebab-case-anime-id>-<episode-number>
-   * and fetches the page with the required Referer header.
+   * and fetches the page with a required Referer header.
    */
   async function content(animeId, episode) {
     const kebabId = toKebabCase(animeId);
@@ -126,8 +121,7 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * It looks for a packed script (using eval(function(p,a,c,k,e,d)...))
-   * and extracts the URL using regex.
+   * Searches for a packed script (using eval(function(p,a,c,k,e,d)...)) and extracts the URL via regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
@@ -147,6 +141,13 @@
     }
   }
 
-  // Export functions for the Sora media app.
-  export { search, details, content, extractStreamUrl };
+  // UMD-style export: If module.exports exists, use it; otherwise, attach to the global object.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { search, details, content, extractStreamUrl };
+  } else {
+    window.search = search;
+    window.details = details;
+    window.content = content;
+    window.extractStreamUrl = extractStreamUrl;
+  }
 })();
