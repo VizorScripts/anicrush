@@ -1,18 +1,16 @@
 (function () {
   // Base URLs for API and embed endpoints.
-  const API_BASE_URL = "https://anicrush.ayoko.fun/"; // API host for search, details, etc.
-  const EMBED_BASE_URL = "https://anicrush.to/"; // Used to build embed URLs
+  const API_BASE_URL = "https://anicrush.ayoko.fun/"; // AniCrush API endpoint from shimizudev/anicrush-api
+  const EMBED_BASE_URL = "https://anicrush.to/";         // Embed endpoint for streaming links
 
   /**
-   * Fetch helper to retrieve JSON.
+   * Fetch helper to retrieve JSON data.
    */
   async function fetchJson(url) {
     try {
       console.log(`Fetching: ${url}`);
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const data = await response.json();
       console.log("API Response:", data);
       return data;
@@ -29,9 +27,7 @@
     try {
       console.log(`Fetching text: ${url}`);
       const response = await fetch(url, { headers });
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const text = await response.text();
       console.log("Fetched HTML content");
       return text;
@@ -42,17 +38,27 @@
   }
 
   /**
-   * Search for anime using the AniCrush API.
+   * Searches for anime using the AniCrush API.
    * Endpoint: GET /api/v1/scraper/search/:query
    */
   async function search(query) {
     const url = `${API_BASE_URL}api/v1/scraper/search/${encodeURIComponent(query)}`;
     const data = await fetchJson(url);
-    if (!data || !data.results) {
+    if (!data) {
       console.error("Invalid search response:", data);
       return [];
     }
-    return data.results.map(item => ({
+    // Check if the API returned an array directly or an object with a "results" property.
+    let results = [];
+    if (Array.isArray(data)) {
+      results = data;
+    } else if (data.results && Array.isArray(data.results)) {
+      results = data.results;
+    } else {
+      console.error("Search response structure not recognized:", data);
+      return [];
+    }
+    return results.map(item => ({
       id: item.id || item._id,
       title: item.title || item.name,
       description: item.description || "",
@@ -62,7 +68,7 @@
   }
 
   /**
-   * Get detailed info for a specific anime.
+   * Retrieves detailed anime information.
    * Endpoint: GET /api/v1/scraper/anime/:id
    */
   async function details(animeId) {
@@ -83,29 +89,27 @@
   }
 
   /**
-   * Get streaming source for a specific anime episode.
-   * Uses the embed endpoint:
-   *   /embed/anime/{link_url}-{episode}
-   * Note: This endpoint requires a header (e.g., Referer).
+   * Retrieves streaming source(s) for a given anime episode.
+   * Builds an embed URL using the provided anime ID and episode number.
+   * A required Referer header is added when fetching the embed page.
    */
   async function content(animeId, episode) {
     const url = `${EMBED_BASE_URL}embed/anime/${encodeURIComponent(animeId)}-${encodeURIComponent(episode)}`;
-    // The embed page requires a Referer header for proper response.
+    // Add the required Referer header.
     const headers = { "Referer": "https://anicrush.to/" };
     const html = await fetchText(url, headers);
     if (!html) {
       console.error("Failed to fetch embed page HTML");
       return [];
     }
-    // Extract and deobfuscate the stream URL from the HTML.
     const streamUrl = extractStreamUrl(html);
     return [{ url: streamUrl, quality: "720p", type: "HLS" }];
   }
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * It looks for a packed script (using eval(function(p,a,c,k,e,d)) and evaluates it,
-   * then extracts the stream URL using a regex.
+   * It finds a packed script (eval(function(p,a,c,k,e,d)...)) and evaluates it,
+   * then uses a regex to extract the URL.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
@@ -114,7 +118,6 @@
       return JSON.stringify({ stream: 'N/A' });
     }
     try {
-      // This eval deobfuscates the packed script.
       const unpackedScript = eval(scriptMatch[1]);
       const streamMatch = unpackedScript.match(/(?<=file:")[^"]+/);
       const stream = streamMatch ? streamMatch[0].trim() : 'N/A';
@@ -126,6 +129,6 @@
     }
   }
 
-  // Export the functions for the Sora media app.
+  // Export functions for the Sora media app.
   export { search, details, content, extractStreamUrl };
 })();
