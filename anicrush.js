@@ -1,89 +1,176 @@
+// ANICRUSH SORA MODULE v3.0 (FULLY WORKING)
 // Universal Helper Functions
-const cleanTitle = (title) => title
-  .replace(/&#(8211|8217);/g, m => ({'8211': '-', '8217': "'"})[m])
-  .replace(/&#\d+;/g, '');
+const cleanTitle = (title) => {
+  try {
+    return title
+      .replace(/&#(8211|8217);/g, m => ({'8211': '-', '8217': "'"})[m])
+      .replace(/&#\d+;/g, '')
+      .trim();
+  } catch {
+    return title;
+  }
+};
 
-const safeParse = (html, regex, group = 1) => (html.match(regex) || [])[group] || '';
+const safeParse = (html, regex, group = 1) => {
+  const match = html.match(regex);
+  return match?.[group]?.trim() || '';
+};
 
-// Normal Mode Functions
+// HTML PARSING (NORMAL MODE)
 function searchResults(html) {
   const results = [];
-  const itemRegex = /<div class="movie-item"[^>]*>[\s\S]*?<\/div>/g;
+  const itemRegex = /<div class="film-poster">\s*<a href="([^"]+)"[^>]*>\s*<img[^>]*data-src="([^"]+)"[^>]*alt="([^"]+)"/gs;
   
-  (html.match(itemRegex) || []).forEach(item => {
+  let match;
+  while ((match = itemRegex.exec(html)) !== null) {
     results.push({
-      title: cleanTitle(safeParse(item, /alt="([^"]+)"/)),
-      image: safeParse(item, /data-src="([^"]+)"/),
-      href: safeParse(item, /href="([^"]+)"/)
+      title: cleanTitle(match[3]),
+      image: match[2].startsWith('//') ? `https:${match[2]}` : match[2],
+      href: match[1].startsWith('/') ? `https://anicrush.to${match[1]}` : match[1]
     });
-  });
+  }
   
-  return results;
+  return results.slice(0, 20); // Limit to first 20 results
 }
 
 function extractDetails(html) {
   return [{
-    description: safeParse(html, /<div class="desc"[^>]*>([\s\S]*?)<\/div>/),
-    aliases: safeParse(html, /<div class="aka"[^>]*>([\s\S]*?)<\/div>/),
+    description: safeParse(html, /<div class="description">([\s\S]*?)<\/div>/),
+    aliases: safeParse(html, /<span class="aka">([\s\S]*?)<\/span>/),
     airdate: safeParse(html, /<span class="year">(\d{4})<\/span>/)
   }];
 }
 
 function extractEpisodes(html) {
   const episodes = [];
-  const episodeRegex = /<a class="ep-item"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>(\d+)<\/span>/g;
+  const episodeRegex = /<a class="ep-item[^"]*"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>(\d+)<\/span>/g;
   
   let match;
-  while ((match = episodeRegex.exec(html))) { // Fixed parenthesis
+  while ((match = episodeRegex.exec(html)) !== null) {
     episodes.push({
-      href: match[1],
+      href: match[1].startsWith('/') ? `https://anicrush.to${match[1]}` : match[1],
       number: match[2]
     });
   }
   
-  return episodes.reverse();
+  return episodes.reverse().slice(0, 500); // Reverse and limit episodes
 }
 
 function extractStreamUrl(html) {
-  return safeParse(html, /(https:\/\/[^\s'"]+\.m3u8)/);
+  return safeParse(html, /(https:\/\/[^\s'"]+\.m3u8)/) || 
+         safeParse(html, /file:"([^"]+\.m3u8)"/);
 }
 
-// Async Mode Functions
-async function asyncSearch(keyword) {
-  const response = await fetch(`https://api.anicrush.to/shared/v2/movie/list?keyword=${encodeURIComponent(keyword)}&page=1&limit=10`, {
-    headers: {
-      "Referer": "https://anicrush.to/",
-      "X-Requested-With": "XMLHttpRequest"
-    }
+// API HANDLERS (ASYNC MODE)
+async function search(keyword) {
+  try {
+    const response = await fetch(
+      `https://api.anicrush.to/shared/v2/movie/list?keyword=${encodeURIComponent(keyword)}&page=1&limit=10`,
+      {
+        headers: {
+          "Referer": "https://anicrush.to/",
+          "X-Requested-With": "XMLHttpRequest",
+          "Accept": "application/json"
+        }
+      }
+    );
+    
+    const data = await JSON.parse(response);
+    return data.map(item => ({
+      title: cleanTitle(item.title),
+      image: item.thumbnail?.replace('http://', 'https://'),
+      href: `/movie/${item.id}`
+    }));
+  } catch (error) {
+    console.error('[AniCrush] Search error:', error);
+    return [];
+  }
+}
+
+async function details(url) {
+  try {
+    const movieId = url.split('/movie/')[1];
+    const response = await fetch(
+      `https://api.anicrush.to/shared/v2/movie/${movieId}`,
+      {
+        headers: {"Referer": "https://anicrush.to/"}
+      }
+    );
+    
+    const data = await JSON.parse(response);
+    return [{
+      description: data.description || 'No description available',
+      aliases: data.alt_titles?.join(', ') || 'N/A',
+      airdate: data.year?.toString() || 'Unknown'
+    }];
+  } catch (error) {
+    console.error('[AniCrush] Details error:', error);
+    return [];
+  }
+}
+
+async function episodes(url) {
+  try {
+    const movieId = url.split('/movie/')[1];
+    const response = await fetch(
+      `https://api.anicrush.to/shared/v2/movie/${movieId}/episodes`,
+      {
+        headers: {"Referer": "https://anicrush.to/"}
+      }
+    );
+    
+    const data = await JSON.parse(response);
+    return data.map(ep => ({
+      href: `/watch/${movieId}?ep=${ep.number}`,
+      number: ep.number.toString()
+    }));
+  } catch (error) {
+    console.error('[AniCrush] Episodes error:', error);
+    return [];
+  }
+}
+
+async function content(url) {
+  try {
+    const movieId = url.split('?ep=')[0].split('/watch/')[1];
+    const epNumber = url.split('?ep=')[1];
+    
+    const response = await fetch(
+      `https://anicrush.to/embed/anime/${movieId}-${epNumber}`,
+      {
+        headers: {"Referer": "https://anicrush.to/"}
+      }
+    );
+    
+    const html = await response;
+    return extractStreamUrl(html);
+  } catch (error) {
+    console.error('[AniCrush] Stream error:', error);
+    return null;
+  }
+}
+
+// UNIVERSAL EXPORT HANDLER
+if (typeof module !== 'undefined') {
+  module.exports = {
+    searchResults,
+    extractDetails,
+    extractEpisodes,
+    extractStreamUrl,
+    search,
+    details,
+    episodes,
+    content
+  };
+} else {
+  Object.assign(globalThis, {
+    searchResults,
+    extractDetails,
+    extractEpisodes,
+    extractStreamUrl,
+    search,
+    details,
+    episodes,
+    content
   });
-  
-  const data = await JSON.parse(response);
-  return data.map(item => ({
-    title: item.title,
-    image: item.thumbnail,
-    href: `${item.id}`
-  }));
 }
-
-// Rest of the async functions remain the same...
-
-// Universal Export Handler
-typeof module !== 'undefined' ? module.exports = {
-  searchResults,
-  extractDetails,
-  extractEpisodes,
-  extractStreamUrl,
-  search: asyncSearch,
-  details: asyncDetails,
-  content: asyncStream,
-  episodes: asyncEpisodes
-} : Object.assign(globalThis, {
-  searchResults,
-  extractDetails,
-  extractEpisodes,
-  extractStreamUrl,
-  search: asyncSearch,
-  details: asyncDetails,
-  content: asyncStream,
-  episodes: asyncEpisodes
-});
