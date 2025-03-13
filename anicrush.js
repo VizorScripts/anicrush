@@ -1,5 +1,5 @@
 (function () {
-  // Endpoints
+  // Endpoints and base URLs.
   const SEARCH_ENDPOINT = "https://api.anicrush.to/shared/v2/movie/list";
   const EMBED_BASE_URL = "https://anicrush.to/embed/anime/";
 
@@ -46,20 +46,19 @@
 
   /**
    * Searches for anime/movies using the AniCrush shared API.
-   * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10
+   * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10&site=anicrush
    */
   async function search(query) {
-    const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10`;
+    // Append the query parameter "site=anicrush" to the URL.
+    const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10&site=anicrush`;
+    // Construct headers matching the auto-generated ones from Postman.
     const headers = {
+      "Host": "api.anicrush.to",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/120.0",
       "Accept": "application/json, text/plain, */*",
-      "Accept-Language": "en-US,en;q=0.9",
       "Accept-Encoding": "gzip, deflate, br",
       "Connection": "keep-alive",
-      "DNT": "1",
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
+      "x-site": "anicrush",
       "X-Requested-With": "XMLHttpRequest"
     };
 
@@ -69,6 +68,7 @@
       return [];
     }
     let results = [];
+    // Try to detect various possible response structures.
     if (Array.isArray(data)) {
       results = data;
     } else if (data.data && Array.isArray(data.data)) {
@@ -91,7 +91,7 @@
 
   /**
    * Retrieves detailed anime information.
-   * (Placeholder – adjust if a details endpoint exists.)
+   * (This is a placeholder since the details endpoint isn’t clearly defined.)
    */
   async function details(animeId) {
     console.log(`Fetching details for anime ID: ${animeId}`);
@@ -107,7 +107,7 @@
 
   /**
    * Retrieves streaming source(s) for a given anime episode.
-   * Constructs an embed URL like:
+   * Constructs an embed URL of the format:
    *   https://anicrush.to/embed/anime/<kebab-case-anime-id>-<episode-number>
    * and fetches the page with the required Referer header.
    */
@@ -126,8 +126,8 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * Searches for a packed script (using eval(function(p,a,c,k,e,d)...))
-   * and extracts the URL via regex.
+   * It looks for a packed script (using eval(function(p,a,c,k,e,d)...))
+   * and extracts the URL using regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
