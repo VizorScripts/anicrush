@@ -1,4 +1,4 @@
-// ANICRUSH SORA MODULE v3.0 (FULLY WORKING)
+// ANICRUSH SORA MODULE v3.0 (FULLY WORKING) - nvm, ts dont work HAHA
 // Universal Helper Functions
 const cleanTitle = (title) => {
   try {
