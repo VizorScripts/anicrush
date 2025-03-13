@@ -4,7 +4,7 @@
   "author": {
     "name": "vizor",
     "icon": "https://i.imgur.com/z3QoDqh.png"
-  "version": "3.2.0",
+  "version": "3.3.0",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
@@ -13,5 +13,6 @@
   "scriptUrl": "https://raw.githubusercontent.com/VizorScripts/anicrush/refs/heads/main/anicrush.js",
   "asyncJS": true,
   "streamAsyncJS": true,
+  "softsub": false
   }
 }
