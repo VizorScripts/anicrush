@@ -1,5 +1,14 @@
-// ANICRUSH SORA MODULE v3.0 (FULLY WORKING) - nvm, ts dont work HAHA
-// Universal Helper Functions
+// ANICRUSH MODULE v3.2 
+const HEADERS = {
+  "Host": "api.anicrush.to",
+  "Origin": "https://anicrush.to",
+  "Referer": "https://anicrush.to/",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "X-Requested-With": "XMLHttpRequest",
+  "Accept": "application/json"
+};
+
+// UTILITY FUNCTIONS
 const cleanTitle = (title) => {
   try {
     return title
@@ -16,7 +25,18 @@ const safeParse = (html, regex, group = 1) => {
   return match?.[group]?.trim() || '';
 };
 
-// HTML PARSING (NORMAL MODE)
+// JAVASCRIPT UNPACKER (KINOGER-STYLE)
+function unpackScript(packedCode) {
+  try {
+    const unpack = new Function('return ' + packedCode.replace(/^eval/, ''))();
+    return unpack.replace(/\\'/g, "'").replace(/\\"/g, '"');
+  } catch (e) {
+    console.error('Unpack error:', e);
+    return packedCode;
+  }
+}
+
+// NORMAL MODE FUNCTIONS
 function searchResults(html) {
   const results = [];
   const itemRegex = /<div class="film-poster">\s*<a href="([^"]+)"[^>]*>\s*<img[^>]*data-src="([^"]+)"[^>]*alt="([^"]+)"/gs;
@@ -29,8 +49,7 @@ function searchResults(html) {
       href: match[1].startsWith('/') ? `https://anicrush.to${match[1]}` : match[1]
     });
   }
-  
-  return results.slice(0, 20); // Limit to first 20 results
+  return results.slice(0, 20);
 }
 
 function extractDetails(html) {
@@ -52,33 +71,38 @@ function extractEpisodes(html) {
       number: match[2]
     });
   }
-  
-  return episodes.reverse().slice(0, 500); // Reverse and limit episodes
+  return episodes.reverse().slice(0, 500);
 }
 
 function extractStreamUrl(html) {
-  return safeParse(html, /(https:\/\/[^\s'"]+\.m3u8)/) || 
-         safeParse(html, /file:"([^"]+\.m3u8)"/);
+  try {
+    // Find packed script
+    const packed = html.match(/eval\(function\(p,a,c,k,e,d\){.*?}\s*\)/s)?.[0];
+    if (packed) {
+      const unpacked = unpackScript(packed);
+      return unpacked.match(/(https:\/\/[^\s'"]+\.m3u8)/)?.[0];
+    }
+    
+    // Fallback to direct match
+    return safeParse(html, /(https:\/\/[^\s'"]+\.m3u8)/);
+  } catch (e) {
+    console.error('Stream extraction error:', e);
+    return null;
+  }
 }
 
-// API HANDLERS (ASYNC MODE)
+// ASYNC MODE FUNCTIONS
 async function search(keyword) {
   try {
     const response = await fetch(
       `https://api.anicrush.to/shared/v2/movie/list?keyword=${encodeURIComponent(keyword)}&page=1&limit=10`,
-      {
-        headers: {
-          "Referer": "https://anicrush.to/",
-          "X-Requested-With": "XMLHttpRequest",
-          "Accept": "application/json"
-        }
-      }
+      { headers: HEADERS }
     );
     
     const data = await JSON.parse(response);
     return data.map(item => ({
       title: cleanTitle(item.title),
-      image: item.thumbnail?.replace('http://', 'https://'),
+      image: item.thumbnail.replace('http://', 'https://'),
       href: `/movie/${item.id}`
     }));
   } catch (error) {
@@ -92,14 +116,12 @@ async function details(url) {
     const movieId = url.split('/movie/')[1];
     const response = await fetch(
       `https://api.anicrush.to/shared/v2/movie/${movieId}`,
-      {
-        headers: {"Referer": "https://anicrush.to/"}
-      }
+      { headers: HEADERS }
     );
     
     const data = await JSON.parse(response);
     return [{
-      description: data.description || 'No description available',
+      description: data.description || 'No description',
       aliases: data.alt_titles?.join(', ') || 'N/A',
       airdate: data.year?.toString() || 'Unknown'
     }];
@@ -114,9 +136,7 @@ async function episodes(url) {
     const movieId = url.split('/movie/')[1];
     const response = await fetch(
       `https://api.anicrush.to/shared/v2/movie/${movieId}/episodes`,
-      {
-        headers: {"Referer": "https://anicrush.to/"}
-      }
+      { headers: HEADERS }
     );
     
     const data = await JSON.parse(response);
@@ -132,14 +152,10 @@ async function episodes(url) {
 
 async function content(url) {
   try {
-    const movieId = url.split('?ep=')[0].split('/watch/')[1];
-    const epNumber = url.split('?ep=')[1];
-    
+    const [_, movieId, episode] = url.match(/(\d+)\?ep=(\d+)/);
     const response = await fetch(
-      `https://anicrush.to/embed/anime/${movieId}-${epNumber}`,
-      {
-        headers: {"Referer": "https://anicrush.to/"}
-      }
+      `https://anicrush.to/embed/anime/${movieId}-${episode}`,
+      { headers: { ...HEADERS, "Referer": `https://anicrush.to/movie/${movieId}` } }
     );
     
     const html = await response;
@@ -150,7 +166,7 @@ async function content(url) {
   }
 }
 
-// UNIVERSAL EXPORT HANDLER
+// EXPORT HANDLER
 if (typeof module !== 'undefined') {
   module.exports = {
     searchResults,
