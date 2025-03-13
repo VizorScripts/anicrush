@@ -13,9 +13,5 @@
   "scriptUrl": "https://raw.githubusercontent.com/VizorScripts/anicrush/refs/heads/main/anicrush.js",
   "asyncJS": true,
   "streamAsyncJS": true,
-  "headers": {
-    "Referer": "https://anicrush.to/",
-    "X-Requested-With": "XMLHttpRequest",
-    "Accept": "application/json"
   }
 }
