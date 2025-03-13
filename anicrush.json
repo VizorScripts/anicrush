@@ -3,9 +3,8 @@
   "iconUrl": "https://anicrush.to/favicon.ico",
   "author": {
     "name": "vizor",
-    "icon": "https://i.imgur.com/z3QoDqh.png"
-  },
-  "version": "3.0.0",
+    "icon": "https://i.imgur.com/z3QoDqh.png
+  "version": "3.2.0",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
@@ -16,6 +15,7 @@
   "streamAsyncJS": true,
   "headers": {
     "Referer": "https://anicrush.to/",
-    "X-Requested-With": "XMLHttpRequest"
+    "X-Requested-With": "XMLHttpRequest",
+    "Accept": "application/json"
   }
 }
