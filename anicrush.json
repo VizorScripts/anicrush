@@ -5,7 +5,7 @@
     "name": "vizor",
     "icon": "https://anicrush.to/favicon.ico"
   },
-  "version": "1.0.0",
+  "version": "0.0.2",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
