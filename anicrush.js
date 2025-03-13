@@ -60,6 +60,7 @@
       "Accept": "application/json, text/plain, */*",
       "Accept-Language": "en-US,en;q=0.9",
       "Accept-Encoding": "gzip, deflate, br",
+      "Host": "api.anicrush.to"
       "Connection": "keep-alive",
       "DNT": "1",
       "Sec-Fetch-Dest": "empty",
