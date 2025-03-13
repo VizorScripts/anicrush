@@ -1,4 +1,4 @@
-// ANICRUSH MODULE v4.0 (FULL WORKING SCRIPT)
+// ANICRUSH MODULE v4.1 (doubt it works)
 const HEADERS = {
   "Accept": "application/json",
   "Origin": "https://anicrush.to",
@@ -7,63 +7,44 @@ const HEADERS = {
   "X-Requested-With": "XMLHttpRequest"
 };
 
-// UTILITY FUNCTIONS
-const cleanTitle = (title) => {
-  try {
-    return title
-      .replace(/&#(8211|8217);/g, m => ({'8211': '-', '8217': "'"})[m])
-      .replace(/&#\d+;/g, '')
-      .trim();
-  } catch {
-    return title;
-  }
-};
-
-const safeParse = (html, regex, group = 1) => {
-  const match = html.match(regex);
-  return match?.[group]?.trim() || '';
-};
-
-// SEARCH HANDLER
+// CORE SEARCH FUNCTION
 async function search(keyword) {
   try {
     const apiUrl = `https://api.anicrush.to/shared/v2/movie/list?keyword=${encodeURIComponent(keyword)}&page=1&limit=10`;
     
-    const response = await fetch(apiUrl, { headers: HEADERS });
-    const rawData = await response;
+    // Get raw response text directly
+    const rawData = await fetch(apiUrl, { headers: HEADERS });
     const data = JSON.parse(rawData);
 
-    console.log('[DEBUG] API Response:', data);
-    
+    // Validate API response structure
     if (!data?.data || !Array.isArray(data.data)) {
-      console.error('Invalid API structure');
+      console.error('Invalid API response format');
       return [];
     }
 
+    // Transform results
     return data.data.map(item => ({
-      title: cleanTitle(item.title) || 'Untitled',
+      title: item.title?.trim() || 'Untitled',
       image: item.thumbnail?.replace('http://', 'https://') || '',
       href: `/movie/${item.id}`
     }));
-    
+
   } catch (error) {
     console.error('Search failed:', error);
     return [];
   }
 }
 
-// DETAILS EXTRACTOR
+// DETAILS HANDLER
 async function details(url) {
   try {
     const movieId = url.split('/movie/')[1];
-    const response = await fetch(
+    const rawData = await fetch(
       `https://api.anicrush.to/shared/v2/movie/${movieId}`,
       { headers: HEADERS }
     );
     
-    const rawData = await response;
     const data = JSON.parse(rawData);
-    
     return [{
       description: data.description || 'No description available',
       aliases: data.alt_titles?.join(', ') || 'N/A',
@@ -80,14 +61,12 @@ async function details(url) {
 async function episodes(url) {
   try {
     const movieId = url.split('/movie/')[1];
-    const response = await fetch(
+    const rawData = await fetch(
       `https://api.anicrush.to/shared/v2/movie/${movieId}/episodes`,
       { headers: HEADERS }
     );
     
-    const rawData = await response;
     const data = JSON.parse(rawData);
-    
     return data.map(ep => ({
       href: `/watch/${movieId}?ep=${ep.number}`,
       number: ep.number.toString()
@@ -103,17 +82,14 @@ async function episodes(url) {
 async function content(url) {
   try {
     const [_, movieId, episode] = url.match(/(\d+)\?ep=(\d+)/);
-    const embedUrl = `https://anicrush.to/embed/anime/${movieId}-${episode}`;
+    const rawData = await fetch(
+      `https://anicrush.to/embed/anime/${movieId}-${episode}`,
+      { headers: { ...HEADERS, Referer: `https://anicrush.to/movie/${movieId}` } }
+    );
     
-    const response = await fetch(embedUrl, {
-      headers: { ...HEADERS, Referer: `https://anicrush.to/movie/${movieId}` }
-    });
-    
-    const html = await response;
+    const html = await rawData;
     const streamUrl = html.match(/(https:\/\/[^\s'"]+\.m3u8)/)?.[0];
-    
-    if (!streamUrl) throw new Error('No stream found');
-    return streamUrl;
+    return streamUrl || null;
     
   } catch (error) {
     console.error('Stream error:', error);
