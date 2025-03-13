@@ -5,13 +5,17 @@
     "name": "vizor",
     "icon": "https://i.imgur.com/z3QoDqh.png"
   },
-  "version": "0.1.4",
+  "version": "2.2.0",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
-  "baseUrl": "https://anicrush.to/",
+  "baseUrl": "https://anicrush.to",
   "searchBaseUrl": "https://api.anicrush.to/shared/v2/movie/list?keyword=%s&page=1&limit=10",
   "scriptUrl": "https://raw.githubusercontent.com/VizorScripts/anicrush/refs/heads/main/anicrush.js",
   "asyncJS": true,
-  "streamAsyncJS": true
+  "streamAsyncJS": true,
+  "headers": {
+    "Referer": "https://anicrush.to/",
+    "X-Requested-With": "XMLHttpRequest"
+  }
 }
