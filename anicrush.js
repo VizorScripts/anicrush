@@ -4,12 +4,18 @@
   const EMBED_BASE_URL = "https://anicrush.to/";         // Embed endpoint for streaming links
 
   /**
-   * Fetch helper to retrieve JSON data.
+   * Fetch helper to retrieve JSON data with default headers.
    */
-  async function fetchJson(url) {
+  async function fetchJson(url, headers = {}) {
     try {
       console.log(`Fetching: ${url}`);
-      const response = await fetch(url);
+      // Set default headers
+      const defaultHeaders = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept": "application/json"
+      };
+      headers = { ...defaultHeaders, ...headers };
+      const response = await fetch(url, { headers });
       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const data = await response.json();
       console.log("API Response:", data);
@@ -38,17 +44,25 @@
   }
 
   /**
+   * Converts a string to kebab-case (lowercase, spaces replaced by dashes).
+   */
+  function toKebabCase(str) {
+    return str.trim().toLowerCase().replace(/\s+/g, '-');
+  }
+
+  /**
    * Searches for anime using the AniCrush API.
    * Endpoint: GET /api/v1/scraper/search/:query
    */
   async function search(query) {
-    const url = `${API_BASE_URL}api/v1/scraper/search/${encodeURIComponent(query)}`;
+    const kebabQuery = toKebabCase(query);
+    const url = `${API_BASE_URL}api/v1/scraper/search/${encodeURIComponent(kebabQuery)}`;
     const data = await fetchJson(url);
     if (!data) {
-      console.error("Invalid search response:", data);
+      console.error("Search returned no data.");
       return [];
     }
-    // Check if the API returned an array directly or an object with a "results" property.
+    // Handle responses that are arrays or objects with a "results" property.
     let results = [];
     if (Array.isArray(data)) {
       results = data;
@@ -58,6 +72,7 @@
       console.error("Search response structure not recognized:", data);
       return [];
     }
+    console.log(`Found ${results.length} results for query "${query}"`);
     return results.map(item => ({
       id: item.id || item._id,
       title: item.title || item.name,
@@ -95,7 +110,6 @@
    */
   async function content(animeId, episode) {
     const url = `${EMBED_BASE_URL}embed/anime/${encodeURIComponent(animeId)}-${encodeURIComponent(episode)}`;
-    // Add the required Referer header.
     const headers = { "Referer": "https://anicrush.to/" };
     const html = await fetchText(url, headers);
     if (!html) {
@@ -108,8 +122,8 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * It finds a packed script (eval(function(p,a,c,k,e,d)...)) and evaluates it,
-   * then uses a regex to extract the URL.
+   * It looks for a packed script (using eval(function(p,a,c,k,e,d)...)) and evaluates it,
+   * then extracts the URL using a regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
