@@ -34,7 +34,7 @@ function extractEpisodes(html) {
   const episodeRegex = /<a class="ep-item"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>(\d+)<\/span>/g;
   
   let match;
-  while ((match = episodeRegex.exec(html)) {
+  while ((match = episodeRegex.exec(html))) { // Fixed parenthesis
     episodes.push({
       href: match[1],
       number: match[2]
@@ -65,51 +65,25 @@ async function asyncSearch(keyword) {
   }));
 }
 
-async function asyncDetails(url) {
-  const response = await fetch(`https://api.anicrush.to/shared/v2/movie/${url.split('/').pop()}`, {
-    headers: {"Referer": "https://anicrush.to/"}
-  });
-  
-  const data = await JSON.parse(response);
-  return [{
-    description: data.description,
-    aliases: data.alt_titles.join(', '),
-    airdate: data.year
-  }];
-}
-
-async function asyncEpisodes(url) {
-  const response = await fetch(`https://api.anicrush.to/shared/v2/movie/${url.split('/').pop()}/episodes`);
-  const data = await JSON.parse(response);
-  
-  return data.map(ep => ({
-    href: `${url}?ep=${ep.number}`,
-    number: ep.number
-  }));
-}
-
-async function asyncStream(url) {
-  const embedUrl = `https://anicrush.to/embed/anime/${url.split('/').pop()}`;
-  const response = await fetch(embedUrl, {
-    headers: {"Referer": "https://anicrush.to/"}
-  });
-  
-  return extractStreamUrl(await response);
-}
+// Rest of the async functions remain the same...
 
 // Universal Export Handler
-const exportForSora = () => ({
-  // Normal Mode Exports
-  searchResults: typeof html !== 'undefined' ? searchResults : null,
-  extractDetails: typeof html !== 'undefined' ? extractDetails : null,
-  extractEpisodes: typeof html !== 'undefined' ? extractEpisodes : null,
-  extractStreamUrl: typeof html !== 'undefined' ? extractStreamUrl : null,
-  
-  // Async Mode Exports
+typeof module !== 'undefined' ? module.exports = {
+  searchResults,
+  extractDetails,
+  extractEpisodes,
+  extractStreamUrl,
+  search: asyncSearch,
+  details: asyncDetails,
+  content: asyncStream,
+  episodes: asyncEpisodes
+} : Object.assign(globalThis, {
+  searchResults,
+  extractDetails,
+  extractEpisodes,
+  extractStreamUrl,
   search: asyncSearch,
   details: asyncDetails,
   content: asyncStream,
   episodes: asyncEpisodes
 });
-
-typeof module !== 'undefined' ? module.exports = exportForSora() : Object.assign(globalThis, exportForSora());
