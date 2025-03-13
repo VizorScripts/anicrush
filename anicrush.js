@@ -1,4 +1,9 @@
 (function () {
+  // Determine a universal global object.
+  const globalObj = typeof globalThis !== "undefined" 
+    ? globalThis 
+    : (typeof self !== "undefined" ? self : this);
+
   // Endpoints and base URLs.
   const SEARCH_ENDPOINT = "https://api.anicrush.to/shared/v2/movie/list";
   const EMBED_BASE_URL = "https://anicrush.to/embed/anime/";
@@ -102,10 +107,9 @@
 
   /**
    * Retrieves streaming source(s) for a given anime episode.
-   * Constructs an embed URL using the provided anime ID and episode number.
-   * The embed URL format is:
+   * Constructs an embed URL in the format:
    *   https://anicrush.to/embed/anime/<kebab-case-anime-id>-<episode-number>
-   * and fetches the page with the required Referer header.
+   * and fetches the page with a required Referer header.
    */
   async function content(animeId, episode) {
     const kebabId = toKebabCase(animeId);
@@ -122,8 +126,8 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * It searches for a packed script (using eval(function(p,a,c,k,e,d)...))
-   * and extracts the URL using regex.
+   * It looks for a packed script (using eval(function(p,a,c,k,e,d)...))
+   * and extracts the URL using a regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
@@ -143,18 +147,13 @@
     }
   }
 
-  // UMD-style export using globalThis.
+  // Universal export: If module.exports exists, use it; otherwise, attach to globalObj.
   if (typeof module !== "undefined" && module.exports) {
     module.exports = { search, details, content, extractStreamUrl };
-  } else if (typeof globalThis !== "undefined") {
-    globalThis.search = search;
-    globalThis.details = details;
-    globalThis.content = content;
-    globalThis.extractStreamUrl = extractStreamUrl;
   } else {
-    this.search = search;
-    this.details = details;
-    this.content = content;
-    this.extractStreamUrl = extractStreamUrl;
+    globalObj.search = search;
+    globalObj.details = details;
+    globalObj.content = content;
+    globalObj.extractStreamUrl = extractStreamUrl;
   }
 })();
