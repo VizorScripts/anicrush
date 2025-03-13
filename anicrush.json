@@ -5,7 +5,7 @@
     "name": "vizor",
     "icon": "https://i.imgur.com/z3QoDqh.png"
   },
-  "version": "2.2.0",
+  "version": "3.0.0",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
