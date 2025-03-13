@@ -1,0 +1,17 @@
+{
+  "sourceName": "AniCrush",
+  "iconUrl": "https://anicrush.to/favicon.ico",
+  "author": {
+    "name": "vizor",
+    "icon": "https://anicrush.to/favicon.ico"
+  },
+  "version": "1.0.0",
+  "language": "English",
+  "streamType": "HLS",
+  "quality": "720p",
+  "baseUrl": "https://anicrush.to/",
+  "searchBaseUrl": "https://anicrush.ayoko.fun/api/v1/scraper/search/%s",
+  "scriptUrl": "https://raw.githubusercontent.com/YourRepo/anicrush-api/main/Anicrush-script.js",
+  "asyncJS": true,
+  "streamAsyncJS": true
+}
