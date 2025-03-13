@@ -1,9 +1,4 @@
 (function () {
-  // Determine a universal global object.
-  const globalObj = typeof globalThis !== "undefined" 
-    ? globalThis 
-    : (typeof self !== "undefined" ? self : this);
-
   // Endpoints and base URLs.
   const SEARCH_ENDPOINT = "https://api.anicrush.to/shared/v2/movie/list";
   const EMBED_BASE_URL = "https://anicrush.to/embed/anime/";
@@ -50,6 +45,27 @@
   }
 
   /**
+   * Derives a title from an embed URL.
+   * For example, from "https://aniwatchtv.to/black-clover-2404?ep=27377"
+   * it extracts "Black Clover".
+   */
+  function deriveTitleFromHref(href) {
+    try {
+      const urlObj = new URL(href);
+      // Get the pathname (e.g., "/black-clover-2404")
+      let path = urlObj.pathname.replace(/^\//, ""); // remove leading slash
+      // Remove trailing numbers (e.g., "-2404")
+      let titlePart = path.replace(/-\d+$/, "");
+      // Replace dashes with spaces and capitalize each word.
+      let title = titlePart.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      return title;
+    } catch (e) {
+      console.error("Error deriving title from href:", e);
+      return "Unknown Title";
+    }
+  }
+
+  /**
    * Searches for anime/movies using the AniCrush shared API.
    * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10
    */
@@ -69,6 +85,7 @@
       return [];
     }
     let results = [];
+    // Handle multiple response structures.
     if (Array.isArray(data)) {
       results = data;
     } else if (data.data && Array.isArray(data.data)) {
@@ -80,13 +97,26 @@
       return [];
     }
     console.log(`Found ${results.length} results for query "${query}"`);
-    return results.map(item => ({
-      id: item.id || item._id,
-      title: item.title || item.name,
-      description: item.description || "",
-      thumbnail: item.thumbnail || item.image || "",
-      year: item.year || "Unknown"
-    }));
+    return results.map(item => {
+      if (item.href) {
+        return {
+          id: item.href, // use href as unique id
+          title: deriveTitleFromHref(item.href),
+          description: "", // no description provided
+          thumbnail: "",  // no thumbnail provided
+          year: "Unknown",
+          href: item.href,
+          number: item.number
+        };
+      }
+      return {
+        id: item.id || item._id,
+        title: item.title || item.name,
+        description: item.description || "",
+        thumbnail: item.thumbnail || item.image || "",
+        year: item.year || "Unknown"
+      };
+    });
   }
 
   /**
@@ -126,8 +156,8 @@
 
   /**
    * Extracts and deobfuscates the stream URL from HTML.
-   * It looks for a packed script (using eval(function(p,a,c,k,e,d)...))
-   * and extracts the URL using a regex.
+   * It searches for a packed script (using eval(function(p,a,c,k,e,d)...))
+   * and extracts the URL via regex.
    */
   function extractStreamUrl(html) {
     const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
@@ -147,13 +177,10 @@
     }
   }
 
-  // Universal export: If module.exports exists, use it; otherwise, attach to globalObj.
-  if (typeof module !== "undefined" && module.exports) {
-    module.exports = { search, details, content, extractStreamUrl };
-  } else {
-    globalObj.search = search;
-    globalObj.details = details;
-    globalObj.content = content;
-    globalObj.extractStreamUrl = extractStreamUrl;
-  }
+  // Universal export: Attach to a universal global object.
+  const globalObj = typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : this);
+  globalObj.search = search;
+  globalObj.details = details;
+  globalObj.content = content;
+  globalObj.extractStreamUrl = extractStreamUrl;
 })();
