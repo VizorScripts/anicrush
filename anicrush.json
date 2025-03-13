@@ -2,10 +2,11 @@
   "sourceName": "AniCrush",
   "iconUrl": "https://anicrush.to/favicon.ico",
   "author": {
-    "name": "vizor",
+    "name": ".vizor",
     "icon": "https://i.imgur.com/z3QoDqh.png"
-  "version": "3.3.0",
-  "language": "English",
+  },
+  "version": "3.2.0",
+  "language": "English (DUB)",
   "streamType": "HLS",
   "quality": "720p",
   "baseUrl": "https://anicrush.to",
@@ -14,5 +15,4 @@
   "asyncJS": true,
   "streamAsyncJS": true,
   "softsub": false
-  }
 }
