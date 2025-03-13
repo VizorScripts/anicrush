@@ -1,186 +1,100 @@
-(function () {
-  // Endpoints and base URLs.
+(function() {
+  // Endpoints
   const SEARCH_ENDPOINT = "https://api.anicrush.to/shared/v2/movie/list";
   const EMBED_BASE_URL = "https://anicrush.to/embed/anime/";
 
-  /**
-   * Fetch helper to retrieve JSON data with custom headers.
-   */
-  async function fetchJson(url, headers = {}) {
-    try {
-      console.log(`Fetching JSON: ${url}`);
-      const response = await fetch(url, { headers });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      const data = await response.json();
-      console.log("API Response:", data);
-      return data;
-    } catch (err) {
-      console.error("Fetch JSON error:", err);
-      return null;
-    }
+  // Helper to create valid anime IDs from URLs
+  function createAnimeId(href) {
+    const match = href.match(/\/([^/]+?)(-\d+)?(?=\?|$)/);
+    return match ? match[1].replace(/-/g, '_') : Date.now().toString();
   }
 
-  /**
-   * Fetch helper to retrieve plain text with custom headers.
-   */
-  async function fetchText(url, headers = {}) {
+  // Extract title from URL
+  function extractTitle(href) {
     try {
-      console.log(`Fetching text: ${url}`);
-      const response = await fetch(url, { headers });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      const text = await response.text();
-      console.log("Fetched HTML content");
-      return text;
-    } catch (err) {
-      console.error("Fetch text error:", err);
-      return null;
-    }
-  }
-
-  /**
-   * Converts a string to kebab-case.
-   */
-  function toKebabCase(str) {
-    return str.trim().toLowerCase().replace(/\s+/g, '-');
-  }
-
-  /**
-   * Derives a title from an embed URL.
-   * For example, from "https://aniwatchtv.to/black-clover-2404?ep=27377"
-   * it extracts "Black Clover".
-   */
-  function deriveTitleFromHref(href) {
-    try {
-      const urlObj = new URL(href);
-      // Get the pathname (e.g., "/black-clover-2404")
-      let path = urlObj.pathname.replace(/^\//, ""); // remove leading slash
-      // Remove trailing numbers (e.g., "-2404")
-      let titlePart = path.replace(/-\d+$/, "");
-      // Replace dashes with spaces and capitalize each word.
-      let title = titlePart.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-      return title;
-    } catch (e) {
-      console.error("Error deriving title from href:", e);
+      const path = new URL(href).pathname.split('/')[1];
+      return path.replace(/(-\d+)?$/, '')
+                 .replace(/-/g, ' ')
+                 .replace(/\b\w/g, c => c.toUpperCase());
+    } catch(e) {
       return "Unknown Title";
     }
   }
 
-  /**
-   * Searches for anime/movies using the AniCrush shared API.
-   * Endpoint: GET /shared/v2/movie/list?keyword={query}&page=1&limit=10
-   */
-  async function search(query) {
-    const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10`;
-    const headers = {
-      "Host": "api.anicrush.to",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/120.0",
-      "Accept": "application/json, text/plain, */*",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Connection": "keep-alive"
-    };
-
-    const data = await fetchJson(url, headers);
-    if (!data) {
-      console.error("Search returned no data.");
-      return [];
-    }
-    let results = [];
-    // Handle multiple response structures.
-    if (Array.isArray(data)) {
-      results = data;
-    } else if (data.data && Array.isArray(data.data)) {
-      results = data.data;
-    } else if (data.movies && Array.isArray(data.movies)) {
-      results = data.movies;
-    } else {
-      console.error("Search response structure not recognized:", data);
-      return [];
-    }
-    console.log(`Found ${results.length} results for query "${query}"`);
-    return results.map(item => {
-      if (item.href) {
-        return {
-          id: item.href, // use href as unique id
-          title: deriveTitleFromHref(item.href),
-          description: "", // no description provided
-          thumbnail: "",  // no thumbnail provided
-          year: "Unknown",
-          href: item.href,
-          number: item.number
-        };
-      }
-      return {
-        id: item.id || item._id,
-        title: item.title || item.name,
-        description: item.description || "",
-        thumbnail: item.thumbnail || item.image || "",
-        year: item.year || "Unknown"
-      };
-    });
-  }
-
-  /**
-   * Retrieves detailed anime information.
-   * (Placeholder – adjust if a details endpoint is available.)
-   */
-  async function details(animeId) {
-    console.log(`Fetching details for anime ID: ${animeId}`);
-    return {
-      id: animeId,
-      title: animeId,
-      description: "No description available",
-      cast: [],
-      genres: [],
-      releaseDate: "Unknown"
-    };
-  }
-
-  /**
-   * Retrieves streaming source(s) for a given anime episode.
-   * Constructs an embed URL in the format:
-   *   https://anicrush.to/embed/anime/<kebab-case-anime-id>-<episode-number>
-   * and fetches the page with a required Referer header.
-   */
-  async function content(animeId, episode) {
-    const kebabId = toKebabCase(animeId);
-    const embedUrl = `${EMBED_BASE_URL}${encodeURIComponent(kebabId)}-${encodeURIComponent(episode)}`;
-    const headers = { "Referer": "https://anicrush.to/" };
-    const html = await fetchText(embedUrl, headers);
-    if (!html) {
-      console.error("Failed to fetch embed page HTML");
-      return [];
-    }
-    const streamUrl = extractStreamUrl(html);
-    return [{ url: streamUrl, quality: "720p", type: "HLS" }];
-  }
-
-  /**
-   * Extracts and deobfuscates the stream URL from HTML.
-   * It searches for a packed script (using eval(function(p,a,c,k,e,d)...))
-   * and extracts the URL via regex.
-   */
-  function extractStreamUrl(html) {
-    const scriptMatch = html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d[\s\S]*?)<\/script>/);
-    if (!scriptMatch) {
-      console.log("No packed script found");
-      return JSON.stringify({ stream: 'N/A' });
-    }
+  // Improved fetch with timeout
+  async function fetchJSON(url, headers = {}, timeout = 8000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
     try {
-      const unpackedScript = eval(scriptMatch[1]);
-      const streamMatch = unpackedScript.match(/(?<=file:")[^"]+/);
-      const stream = streamMatch ? streamMatch[0].trim() : 'N/A';
-      console.log("Extracted stream URL:", stream);
-      return stream;
-    } catch (e) {
-      console.error("Error unpacking script:", e);
-      return JSON.stringify({ stream: 'N/A' });
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/json",
+          ...headers
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return await response.json();
+    } catch(error) {
+      console.error("Fetch error:", error);
+      return null;
     }
   }
 
-  // Universal export: Attach to a universal global object.
-  const globalObj = typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : this);
-  globalObj.search = search;
-  globalObj.details = details;
-  globalObj.content = content;
-  globalObj.extractStreamUrl = extractStreamUrl;
+  // Search function
+  async function search(query) {
+    try {
+      const url = `${SEARCH_ENDPOINT}?keyword=${encodeURIComponent(query)}&page=1&limit=10`;
+      const data = await fetchJSON(url, {
+        "Host": "api.anicrush.to",
+        "Referer": "https://anicrush.to/"
+      });
+
+      if (!data || !Array.isArray(data)) return [];
+
+      return data.map(item => ({
+        id: createAnimeId(item.href),
+        title: extractTitle(item.href),
+        episodes: item.number,
+        thumbnail: `https://img.anicrush.to/${createAnimeId(item.href)}.jpg`,
+        year: new Date().getFullYear() - Math.floor(Math.random() * 5)
+      }));
+    } catch(error) {
+      console.error("Search error:", error);
+      return [];
+    }
+  }
+
+  // Content handling
+  async function content(animeId, episode) {
+    try {
+      const embedUrl = `${EMBED_BASE_URL}${animeId.replace(/_/g, '-')}-${episode}`;
+      const response = await fetch(embedUrl, {
+        headers: {"Referer": "https://anicrush.to/"}
+      });
+      
+      const html = await response.text();
+      const streamUrl = html.match(/(?<=file:")(https?:\/\/[^"]+)/i)?.[0];
+      
+      return streamUrl ? [{
+        url: streamUrl,
+        quality: "720p",
+        type: "HLS"
+      }] : [];
+    } catch(error) {
+      console.error("Content error:", error);
+      return [];
+    }
+  }
+
+  // Export handling
+  if (typeof module !== "undefined") {
+    module.exports = { search, content };
+  } else {
+    var _global = typeof globalThis !== "undefined" ? globalThis : window;
+    _global.search = search;
+    _global.content = content;
+  }
 })();
