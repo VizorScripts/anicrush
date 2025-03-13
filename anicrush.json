@@ -3,9 +3,9 @@
   "iconUrl": "https://anicrush.to/favicon.ico",
   "author": {
     "name": "vizor",
-    "icon": "https://i.imgur.com/inXJJXO.jpeg"
+    "icon": "https://i.imgur.com/z3QoDqh.png"
   },
-  "version": "0.0.3",
+  "version": "0.0.4",
   "language": "English",
   "streamType": "HLS",
   "quality": "720p",
